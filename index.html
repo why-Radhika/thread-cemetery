@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>The Thread Cemetery</title>
 
+  <!-- Open Graph / Social preview -->
+  <meta property="og:title"       content="The Thread Cemetery" />
+  <meta property="og:description" content="Every developer has a graveyard. This one is public. Bury your abandoned projects." />
+  <meta property="og:image"       content="https://why-Radhika.github.io/thread-cemetery/og-image.png" />
+  <meta property="og:url"         content="https://why-Radhika.github.io/thread-cemetery/" />
+  <meta property="og:type"        content="website" />
+  <meta name="twitter:card"       content="summary_large_image" />
+  <meta name="twitter:title"      content="The Thread Cemetery" />
+  <meta name="twitter:description" content="Every developer has a graveyard. This one is public." />
+  <meta name="twitter:image"      content="https://why-Radhika.github.io/thread-cemetery/og-image.png" />
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cinzel+Decorative:wght@400&display=swap" rel="stylesheet">
@@ -73,6 +84,20 @@
       <input type="text" id="searchInput" placeholder="Search the dead by name or epitaph…" oninput="onSearch(this.value)" />
       <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
     </div>
+
+    <!-- Sort + Random row -->
+    <div class="sort-random-row">
+      <div class="sort-wrap">
+        <label class="filter-label" for="sortSelect">Sort :</label>
+        <select id="sortSelect" class="sort-select" onchange="setSort(this.value)">
+          <option value="newest">Most Recent</option>
+          <option value="respected">Most Respected</option>
+          <option value="oldest">Oldest Grave</option>
+        </select>
+      </div>
+      <button class="random-btn" onclick="visitRandomGrave()">🎲 Random Grave</button>
+    </div>
+
     <div class="filter-row">
       <span class="filter-label">Cause :</span>
       <button class="filter-pill active"  data-cause="all"                         onclick="setFilter('all')">All Souls</button>

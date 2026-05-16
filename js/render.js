@@ -1,12 +1,17 @@
-// ── Filter & Search state ─────────────────────────────────────────
+// ── Filter, Search & Sort state ──────────────────────────────────
 let activeFilter = 'all';
 let searchQuery  = '';
+let activeSort   = 'newest'; // 'newest' | 'oldest' | 'respected'
 
 function applyFilters(projects) {
   let result = [...projects];
+
+  // Filter by cause
   if (activeFilter !== 'all') {
     result = result.filter(p => (p.cause || '') === activeFilter);
   }
+
+  // Filter by search
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     result = result.filter(p =>
@@ -16,7 +21,30 @@ function applyFilters(projects) {
       (p.cause       || '').toLowerCase().includes(q)
     );
   }
+
+  // Sort
+  result.sort((a, b) => {
+    if (activeSort === 'respected') {
+      return (b.respects || 0) - (a.respects || 0);
+    }
+    const aDate = new Date(a.created_at || a.date || 0);
+    const bDate = new Date(b.created_at || b.date || 0);
+    return activeSort === 'oldest' ? aDate - bDate : bDate - aDate;
+  });
+
   return result;
+}
+
+function setSort(val) {
+  activeSort = val;
+  renderGraveyard();
+}
+
+function visitRandomGrave() {
+  const all = cachedProjects || localLoad();
+  if (!all.length) return;
+  const p = all[Math.floor(Math.random() * all.length)];
+  openDetailModal(p.id, p);
 }
 
 function setFilter(cause) {
@@ -103,40 +131,74 @@ function renderGrid(all) {
     return;
   }
 
-  projects.forEach(p => {
-    const el = document.createElement('div');
-    el.className   = 'tombstone';
-    el.style.transform = `rotate(${(Math.random() - 0.5) * 3.5}deg)`;
-    el.onclick     = () => openDetailModal(p.id, p);
+  // Show sections when not filtering by a specific cause
+  const useSections = activeFilter === 'all' && !searchQuery;
 
-    const dateRaw = p.date || p.created_at;
-    const dateStr = dateRaw
-      ? new Date(dateRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-      : '';
+  if (useSections) {
+    // Group by cause
+    const sections = {};
+    projects.forEach(p => {
+      const cause = p.cause || 'Unknown';
+      if (!sections[cause]) sections[cause] = [];
+      sections[cause].push(p);
+    });
 
-    const name    = searchQuery ? highlight(escHtml(p.name),    searchQuery) : escHtml(p.name);
-    const epitaph = searchQuery && p.epitaph
-      ? highlight(escHtml(p.epitaph), searchQuery)
-      : escHtml(p.epitaph || '');
+    // Render each section
+    Object.entries(sections).forEach(([cause, graves]) => {
+      // Section header
+      const header = document.createElement('div');
+      header.className = 'section-header';
+      header.innerHTML = `
+        <div class="section-line"></div>
+        <span class="section-title">${escHtml(cause)}</span>
+        <div class="section-line"></div>
+        <span class="section-count">${graves.length} soul${graves.length !== 1 ? 's' : ''}</span>`;
+      grid.appendChild(header);
 
-    el.innerHTML = `
-      <div class="stone-body">
-        <div class="stone-rip">✦ R.I.P. ✦</div>
-        <div class="stone-name">${name}</div>
-        <div class="stone-cause">${escHtml(p.cause || '')}</div>
-        ${p.epitaph ? `<div class="stone-epitaph">"${epitaph}"</div>` : ''}
-        <div class="stone-date">${dateStr}</div>
-      </div>
-      <div class="stone-grass">
-        <svg viewBox="0 0 200 14" xmlns="http://www.w3.org/2000/svg">${generateGrass(12)}</svg>
-      </div>
-      <div class="stone-respects" onclick="event.stopPropagation(); quickRespect('${p.id}', this)">
-        <button class="respect-btn">🕯</button>
-        <span class="respect-count">${p.respects || 0} respects</span>
-      </div>`;
+      // Tombstones for this section
+      const row = document.createElement('div');
+      row.className = 'section-grid';
+      graves.forEach(p => row.appendChild(makeTombstone(p)));
+      grid.appendChild(row);
+    });
+  } else {
+    // Flat grid (filtered / searched)
+    projects.forEach(p => grid.appendChild(makeTombstone(p)));
+  }
+}
 
-    grid.appendChild(el);
-  });
+function makeTombstone(p) {
+  const el = document.createElement('div');
+  el.className = 'tombstone';
+  el.style.transform = `rotate(${(Math.random() - 0.5) * 3.5}deg)`;
+  el.onclick = () => openDetailModal(p.id, p);
+
+  const dateRaw = p.date || p.created_at;
+  const dateStr = dateRaw
+    ? new Date(dateRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  const name    = searchQuery ? highlight(escHtml(p.name),    searchQuery) : escHtml(p.name);
+  const epitaph = searchQuery && p.epitaph
+    ? highlight(escHtml(p.epitaph), searchQuery)
+    : escHtml(p.epitaph || '');
+
+  el.innerHTML = `
+    <div class="stone-body">
+      <div class="stone-rip">✦ R.I.P. ✦</div>
+      <div class="stone-name">${name}</div>
+      <div class="stone-cause">${escHtml(p.cause || '')}</div>
+      ${p.epitaph ? `<div class="stone-epitaph">"${epitaph}"</div>` : ''}
+      <div class="stone-date">${dateStr}</div>
+    </div>
+    <div class="stone-grass">
+      <svg viewBox="0 0 200 14" xmlns="http://www.w3.org/2000/svg">${generateGrass(12)}</svg>
+    </div>
+    <div class="stone-respects" onclick="event.stopPropagation(); quickRespect('${p.id}', this)">
+      <button class="respect-btn">🕯</button>
+      <span class="respect-count">${p.respects || 0} respects</span>
+    </div>`;
+  return el;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────

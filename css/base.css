@@ -67,7 +67,7 @@ body::before {
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .graveyard-ground { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 28px 16px; }
+  .section-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 28px 16px; }
   .stats-bar { gap: 24px; }
   .modal { padding: 28px 20px; }
 }

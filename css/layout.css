@@ -131,10 +131,51 @@ h1 {
   padding: 0 24px 160px;
 }
 .graveyard-ground {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* ── Graveyard sections ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 0 20px;
+  width: 100%;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--stone-border));
+}
+.section-header:first-child .section-line:first-child,
+.section-line:last-of-type {
+  background: linear-gradient(90deg, var(--stone-border), transparent);
+}
+.section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--parchment-dim);
+  white-space: nowrap;
+}
+.section-count {
+  font-family: 'Cormorant Garant', serif;
+  font-style: italic;
+  font-size: 0.75rem;
+  color: var(--parchment-dim);
+  opacity: 0.5;
+  white-space: nowrap;
+}
+.section-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 40px 28px;
   align-items: end;
+  width: 100%;
+  margin-bottom: 12px;
 }
 
 /* ── Ground line ── */
