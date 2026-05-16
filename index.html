@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Thread Cemetery</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Cinzel+Decorative:wght@400&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/tombstone.css">
+  <link rel="stylesheet" href="css/components.css">
+
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+  <!-- ── Atmosphere ── -->
+  <div class="fog-layer fog-1">
+    <svg viewBox="0 0 900 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,180 Q80,140 160,170 Q240,200 320,155 Q400,110 480,160 Q560,210 640,165 Q720,120 800,155 Q860,180 900,145 L900,220 L0,220 Z" fill="rgba(160,170,180,0.12)"/>
+      <path d="M0,200 Q100,170 200,190 Q300,210 400,180 Q500,150 600,185 Q700,220 800,195 Q860,180 900,200 L900,220 L0,220 Z" fill="rgba(160,170,180,0.08)"/>
+    </svg>
+  </div>
+  <div class="fog-layer fog-2">
+    <svg viewBox="0 0 900 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M0,160 Q120,120 240,155 Q360,190 480,145 Q600,100 720,150 Q820,195 900,155 L900,220 L0,220 Z" fill="rgba(150,165,175,0.1)"/>
+    </svg>
+  </div>
+
+  <!-- ── Header ── -->
+  <header>
+    <p class="header-eyebrow">Est. Anno Domini 2026</p>
+    <h1>The Thread Cemetery</h1>
+    <p class="tagline">Every developer has a graveyard. This one is public.</p>
+    <div class="header-divider">
+      <span></span>
+      <span class="skull">☽ 🕯 ☾</span>
+      <span></span>
+    </div>
+  </header>
+
+  <!-- ── Stats ── -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat">
+      <div class="stat-number" id="statTotal">0</div>
+      <div class="stat-label">Souls at Rest</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number" id="statRespects">0</div>
+      <div class="stat-label">Respects Paid</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number" id="statCause">—</div>
+      <div class="stat-label">Top Cause of Death</div>
+    </div>
+  </div>
+
+  <!-- ── Bury Button ── -->
+  <div class="bury-btn-wrap">
+    <button class="bury-btn" onclick="openBuryModal()">⚰ Bury a Project</button>
+  </div>
+
+  <!-- ── Search & Filters ── -->
+  <div class="search-filter-wrap">
+    <div class="search-box">
+      <span class="search-icon">⚰</span>
+      <input type="text" id="searchInput" placeholder="Search the dead by name or epitaph…" oninput="onSearch(this.value)" />
+      <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Cause :</span>
+      <button class="filter-pill active"  data-cause="all"                         onclick="setFilter('all')">All Souls</button>
+      <button class="filter-pill"         data-cause="Lost motivation"              onclick="setFilter('Lost motivation')">Lost motivation</button>
+      <button class="filter-pill"         data-cause="Got a job"                   onclick="setFilter('Got a job')">Got a job</button>
+      <button class="filter-pill"         data-cause="Life happened"               onclick="setFilter('Life happened')">Life happened</button>
+      <button class="filter-pill"         data-cause="Scope creep"                 onclick="setFilter('Scope creep')">Scope creep</button>
+      <button class="filter-pill"         data-cause="Shiny new idea"              onclick="setFilter('Shiny new idea')">Shiny new idea</button>
+      <button class="filter-pill"         data-cause="Never even started"          onclick="setFilter('Never even started')">Never even started</button>
+      <button class="filter-pill"         data-cause="Too ambitious"               onclick="setFilter('Too ambitious')">Too ambitious</button>
+      <button class="filter-pill"         data-cause="Framework drama"             onclick="setFilter('Framework drama')">Framework drama</button>
+      <button class="filter-pill"         data-cause="The database became sentient" onclick="setFilter('The database became sentient')">The database became sentient</button>
+    </div>
+  </div>
+
+  <!-- ── Results count ── -->
+  <div class="results-count" id="resultsCount"></div>
+
+  <!-- ── Graveyard ── -->
+  <div class="graveyard">
+    <div class="graveyard-ground" id="graveyardGrid"></div>
+  </div>
+
+  <div class="ground-line"></div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <p>Here lie the unfinished, the abandoned, the "I'll get to it someday"</p>
+    <p style="margin-top:6px; opacity:0.6;">Built with grief · Hosted on GitHub Pages</p>
+  </footer>
+
+  <!-- ── Toast ── -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ── Bury Modal ── -->
+  <div class="modal-overlay" id="buryModal" onclick="handleOverlayClick(event, 'buryModal')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('buryModal')">✕</button>
+      <div class="form-title">Last Rites</div>
+      <p class="form-subtitle">Fill out the burial certificate for your departed project.</p>
+
+      <div class="field">
+        <label>Project Name</label>
+        <input type="text" id="fName" placeholder="My Fitness Tracker, The Novel, etc." maxlength="60"/>
+      </div>
+      <div class="field">
+        <label>What Was It?</label>
+        <textarea id="fDesc" placeholder="Briefly describe what this was going to be…" maxlength="200"></textarea>
+      </div>
+      <div class="field">
+        <label>Cause of Death</label>
+        <select id="fCause">
+          <option value="">— Choose one —</option>
+          <option>Lost motivation</option>
+          <option>Got a job</option>
+          <option>Life happened</option>
+          <option>Scope creep</option>
+          <option>Shiny new idea</option>
+          <option>Never even started</option>
+          <option>Too ambitious</option>
+          <option>Framework drama</option>
+          <option>The database became sentient</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Epitaph <span style="opacity:0.5; font-style:italic; text-transform:none; letter-spacing:0">(optional)</span></label>
+        <input type="text" id="fEpitaph" placeholder="It ran, briefly, in my head…" maxlength="100"/>
+      </div>
+
+      <button class="submit-btn" onclick="buryProject()">⚰ &nbsp; Commit to the Ground</button>
+    </div>
+  </div>
+
+  <!-- ── Detail Modal ── -->
+  <div class="modal-overlay" id="detailModal" onclick="handleOverlayClick(event, 'detailModal')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+      <div class="detail-rip">R.I.P.</div>
+      <div class="detail-name" id="dName"></div>
+      <div class="detail-divider"></div>
+
+      <div class="detail-section-label">What it was</div>
+      <div class="detail-text" id="dDesc"></div>
+
+      <div class="detail-divider"></div>
+
+      <div class="detail-section-label">Cause of Death</div>
+      <div><span class="detail-cause" id="dCause"></span></div>
+      <div class="detail-date" id="dDate"></div>
+
+      <div id="dEpitaphWrap" style="margin-top:16px; display:none;">
+        <div class="detail-divider"></div>
+        <div class="detail-section-label">Epitaph</div>
+        <div class="detail-text" id="dEpitaph" style="font-size:1rem;"></div>
+      </div>
+
+      <div class="detail-respects-row">
+        <button class="detail-respect-btn" id="detailRespectBtn" onclick="payRespectFromDetail()">
+          🕯 Pay Respects &nbsp;<span id="detailRespectCount"></span>
+        </button>
+        <button class="detail-respect-btn" id="detailShareBtn" onclick="shareGrave()">
+          🔗 Share Grave
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DB Status ── -->
+  <div class="db-status" id="dbStatus">
+    <div class="db-dot" id="dbDot"></div>
+    <span id="dbLabel">connecting…</span>
+  </div>
+
+  <!-- ── Scripts (order matters: db → render → ui) ── -->
+  <script src="js/db.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+
+</body>
+</html>
