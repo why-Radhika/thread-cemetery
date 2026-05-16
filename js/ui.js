@@ -192,15 +192,18 @@ function showSpotlight(p) {
   document.getElementById('spRespectBtn').classList.remove('paid');
   document.getElementById('spRespectCount').textContent = p.respects || 0;
 
-  document.getElementById('graveSpotlight').style.display = 'flex';
+  const el = document.getElementById('graveSpotlight');
+  el.style.display = '';           // clear any inline style
+  el.classList.add('active');      // CSS handles display:flex
   document.body.style.overflow = 'hidden';
 }
 
 function exitSpotlight() {
-  document.getElementById('graveSpotlight').style.display = 'none';
+  const el = document.getElementById('graveSpotlight');
+  el.classList.remove('active');
+  el.style.display = 'none';
   document.body.style.overflow = '';
   spotlightId = null;
-  // Clean the hash so the graveyard feels fresh
   history.replaceState(null, '', location.pathname);
 }
 
@@ -227,13 +230,21 @@ async function checkHashOnLoad() {
   if (!hash || !hash.startsWith('#grave-')) return;
 
   const id = hash.replace('#grave-', '');
-  // Wait for data to load
-  const projects = cachedProjects || [];
-  const p = projects.find(x => x.id === id);
+
+  // Guarantee fresh data — don't rely on cachedProjects being set
+  let projects = cachedProjects;
+  if (!projects || projects.length === 0) {
+    projects = await loadProjects();
+  }
+
+  const p = projects.find(x => String(x.id) === String(id));
+  console.log('[spotlight] hash id:', id, '| found:', p ? p.name : 'NOT FOUND', '| total projects:', projects.length);
 
   if (p) {
-    // Direct shared link — show spotlight instead of modal
     showSpotlight(p);
+  } else {
+    // ID not found — show a gentle fallback
+    showToast('This grave could not be found. It may have been moved.');
   }
 }
 

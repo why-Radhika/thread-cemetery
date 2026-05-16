@@ -366,11 +366,13 @@
   background: var(--bg);
   z-index: 300;
   overflow-y: auto;
-  display: flex;
   align-items: flex-start;
   justify-content: center;
   padding: 40px 20px 80px;
   animation: fadeUp 0.6s ease forwards;
+}
+.spotlight-wrap.active {
+  display: flex;
 }
 
 .spotlight-inner {
