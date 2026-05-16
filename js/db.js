@@ -5,7 +5,7 @@ const SUPABASE_URL = 'https://zigiidldcjlbvaylxbqi.supabase.co';   // e.g. https
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppZ2lpZGxkY2psYnZheWx4YnFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5MjAzNDEsImV4cCI6MjA5NDQ5NjM0MX0.JgdcTCuODNWKHDxMViN9X5ju1tXCL_1ui-qQBvrl1Ic'; // anon / public key
 // ══════════════════════════════════════════════════════════════════
 
-const USE_SUPABASE = SUPABASE_URL !== 'https://zigiidldcjlbvaylxbqi.supabase.co';
+const USE_SUPABASE = SUPABASE_URL !== 'https://zigiidldcjlbvaylxbqi.supabase.co/rest/v1/';
 const STORAGE_KEY  = 'thread_cemetery_v1';
 
 let db             = null;
