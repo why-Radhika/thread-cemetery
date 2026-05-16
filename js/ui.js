@@ -111,6 +111,7 @@ function openModal(id) {
   document.getElementById(id).classList.add('open');
   document.body.style.overflow = 'hidden';
   if (id === 'detailModal' && currentDetailId) {
+    // Update URL so share button works, but don't show spotlight
     history.replaceState(null, '', `#grave-${currentDetailId}`);
   }
 }
@@ -165,15 +166,74 @@ function shareGrave() {
   }
 }
 
+// ── Grave Spotlight (shared link landing) ────────────────────────
+let spotlightId = null;
+
+function showSpotlight(p) {
+  spotlightId = p.id;
+
+  document.getElementById('spName').textContent  = p.name;
+  document.getElementById('spDesc').textContent  = p.description || p.desc || 'No description given.';
+  document.getElementById('spCause').textContent = p.cause || '';
+
+  const dateRaw = p.date || p.created_at;
+  document.getElementById('spDate').textContent = dateRaw
+    ? 'Buried: ' + new Date(dateRaw).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  const epitaphWrap = document.getElementById('spEpitaphWrap');
+  if (p.epitaph) {
+    epitaphWrap.style.display = 'block';
+    document.getElementById('spEpitaph').textContent = `"${p.epitaph}"`;
+  } else {
+    epitaphWrap.style.display = 'none';
+  }
+
+  document.getElementById('spRespectBtn').classList.remove('paid');
+  document.getElementById('spRespectCount').textContent = p.respects || 0;
+
+  document.getElementById('graveSpotlight').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function exitSpotlight() {
+  document.getElementById('graveSpotlight').style.display = 'none';
+  document.body.style.overflow = '';
+  spotlightId = null;
+  // Clean the hash so the graveyard feels fresh
+  history.replaceState(null, '', location.pathname);
+}
+
+async function payRespectFromSpotlight() {
+  if (!spotlightId) return;
+  try {
+    await incrementRespects(spotlightId);
+    if (cachedProjects) {
+      const p = cachedProjects.find(x => x.id === spotlightId);
+      if (p) p.respects = (p.respects || 0) + 1;
+    }
+    const p = (cachedProjects || localLoad()).find(x => x.id === spotlightId);
+    document.getElementById('spRespectCount').textContent = p ? p.respects : '–';
+    document.getElementById('spRespectBtn').classList.add('paid');
+    showToast('🕯 Respects paid.');
+  } catch (e) {
+    showToast('Could not save respects.');
+  }
+}
+
 // ── Hash routing ──────────────────────────────────────────────────
 async function checkHashOnLoad() {
   const hash = location.hash;
-  if (hash && hash.startsWith('#grave-')) {
-    const id = hash.replace('#grave-', '');
-    setTimeout(() => {
-      const p = (cachedProjects || []).find(x => x.id === id);
-      if (p) openDetailModal(id, p);
-    }, 800);
+  if (!hash || !hash.startsWith('#grave-')) return;
+
+  const id = hash.replace('#grave-', '');
+  // Wait for data to load
+  const projects = cachedProjects || [];
+  const p = projects.find(x => x.id === id);
+
+  if (p) {
+    // Direct shared link — show spotlight instead of modal
+    showSpotlight(p);
   }
 }
 

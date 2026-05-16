@@ -113,6 +113,45 @@
     </div>
   </div>
 
+  <!-- ── Grave Spotlight (shared link landing) ── -->
+  <div id="graveSpotlight" class="spotlight-wrap" style="display:none;">
+    <div class="spotlight-inner">
+      <button class="spotlight-back" onclick="exitSpotlight()">← Back to Cemetery</button>
+
+      <div class="spotlight-card">
+        <div class="detail-rip">✦ R.I.P. ✦</div>
+        <div class="spotlight-name"  id="spName"></div>
+        <div class="spotlight-divider"></div>
+
+        <div class="detail-section-label">What it was</div>
+        <div class="detail-text" id="spDesc"></div>
+
+        <div class="spotlight-divider"></div>
+
+        <div class="detail-section-label">Cause of Death</div>
+        <div><span class="detail-cause" id="spCause"></span></div>
+        <div class="detail-date"  id="spDate"></div>
+
+        <div id="spEpitaphWrap" style="display:none; margin-top:16px;">
+          <div class="spotlight-divider"></div>
+          <div class="detail-section-label">Epitaph</div>
+          <div class="detail-text spotlight-epitaph" id="spEpitaph"></div>
+        </div>
+
+        <div class="detail-respects-row" style="margin-top:28px;">
+          <button class="detail-respect-btn" id="spRespectBtn" onclick="payRespectFromSpotlight()">
+            🕯 Pay Respects &nbsp;<span id="spRespectCount"></span>
+          </button>
+          <button class="detail-respect-btn" onclick="exitSpotlight()">
+            🪦 Browse Cemetery
+          </button>
+        </div>
+      </div>
+
+      <p class="spotlight-hint">You were shared this grave. Welcome to the cemetery.</p>
+    </div>
+  </div>
+
   <!-- ── Results count ── -->
   <div class="results-count" id="resultsCount"></div>
 
