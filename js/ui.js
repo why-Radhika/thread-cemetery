@@ -1,6 +1,6 @@
 // ── Bury Modal ────────────────────────────────────────────────────
 function openBuryModal() {
-  ['fName', 'fDesc', 'fEpitaph'].forEach(id => document.getElementById(id).value = '');
+  ['fName', 'fDesc', 'fEpitaph', 'fGithub'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('fCause').value = '';
   openModal('buryModal');
 }
@@ -10,6 +10,7 @@ async function buryProject() {
   const desc    = document.getElementById('fDesc').value.trim();
   const cause   = document.getElementById('fCause').value;
   const epitaph = document.getElementById('fEpitaph').value.trim();
+  const github  = document.getElementById('fGithub').value.trim().replace(/^@/, '');
 
   if (!name)  { showToast('A name is required — even in death.'); return; }
   if (!cause) { showToast('How did it die? Choose a cause.'); return; }
@@ -21,9 +22,11 @@ async function buryProject() {
   try {
     const saved = await insertProject({
       name, desc, cause, epitaph,
+      github_username: github,
       id:       'p_' + Date.now(),
       date:     new Date().toISOString().split('T')[0],
       respects: 0,
+      status:   'buried',
     });
     if (cachedProjects) cachedProjects.unshift(saved);
     closeModal('buryModal');
@@ -63,6 +66,29 @@ function openDetailModal(id, p) {
     document.getElementById('dEpitaph').textContent = `"${p.epitaph}"`;
   } else {
     epitaphWrap.style.display = 'none';
+  }
+
+  // GitHub link
+  const githubWrap = document.getElementById('dGithubWrap');
+  const gh = p.github_username || '';
+  if (gh) {
+    githubWrap.style.display = 'block';
+    document.getElementById('dGithubLink').href = `https://github.com/${gh}`;
+    document.getElementById('dGithubName').textContent = `github.com/${gh}`;
+  } else {
+    githubWrap.style.display = 'none';
+  }
+
+  // Exhume button — hide if already risen
+  const exhumeBtn = document.getElementById('detailExhumeBtn');
+  if (p.status === 'risen') {
+    exhumeBtn.textContent = '🌿 Risen';
+    exhumeBtn.classList.add('exhumed');
+    exhumeBtn.disabled = true;
+  } else {
+    exhumeBtn.textContent = '🌿 Exhume';
+    exhumeBtn.classList.remove('exhumed');
+    exhumeBtn.disabled = false;
   }
 
   // Respects
@@ -232,6 +258,31 @@ async function loadAndShowDigest() {
     document.getElementById('weeklyDigest').style.display = 'block';
   } catch (e) {
     // Digest is non-critical, fail silently
+  }
+}
+
+// ── Exhume ────────────────────────────────────────────────────────
+async function exhumeProject() {
+  if (!currentDetailId) return;
+  const btn = document.getElementById('detailExhumeBtn');
+  btn.textContent = 'Rising…';
+  btn.disabled    = true;
+
+  try {
+    await exhumeGrave(currentDetailId);
+    if (cachedProjects) {
+      const p = cachedProjects.find(x => x.id === currentDetailId);
+      if (p) { p.status = 'risen'; p.revived_at = new Date().toISOString(); }
+    }
+    btn.textContent = '🌿 Risen';
+    btn.classList.add('exhumed');
+    closeModal('detailModal');
+    await renderAll();
+    showToast('🌿 Project exhumed. It lives again.');
+  } catch (e) {
+    btn.textContent = '🌿 Exhume';
+    btn.disabled    = false;
+    showToast('Could not exhume the project.');
   }
 }
 

@@ -10,12 +10,12 @@ const STORAGE_KEY  = 'thread_cemetery_v1';
 
 let db             = null;
 let cachedProjects = null;
-
+ 
 // ── Init Supabase client ──────────────────────────────────────────
 if (USE_SUPABASE) {
   db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 }
-
+ 
 // ── DB status indicator ───────────────────────────────────────────
 function setDbStatus(state) {
   const dot   = document.getElementById('dbDot');
@@ -26,7 +26,7 @@ function setDbStatus(state) {
   else if (state === 'local') {                             label.textContent = 'local mode'; }
   else                        {                             label.textContent = 'connecting…'; }
 }
-
+ 
 // ── Default seed data (local mode only) ──────────────────────────
 const DEFAULTS = [
   { id: 'default_1', name: 'FitTrack Pro',            description: 'A comprehensive fitness app that would finally revolutionize how people tracked their workouts. Had 47 features planned.', cause: 'Scope creep',     epitaph: 'It never ran, but in our hearts it had six-pack abs.', date: '2024-03-12', respects: 24 },
@@ -36,9 +36,9 @@ const DEFAULTS = [
   { id: 'default_5', name: 'Social Media Detox App',   description: 'An app to help you stop using apps. The irony was not lost on me.',                                                     cause: 'Lost motivation', epitaph: 'Abandoned while scrolling Twitter.',                    date: '2024-11-03', respects: 89 },
   { id: 'default_6', name: 'Weekend Game Jam Entry',   description: 'A roguelike dungeon crawler with procedural generation, dialogue trees, and a jazz soundtrack.',                         cause: 'Framework drama', epitaph: 'Spent 36 hours arguing about game engines.',            date: '2025-08-18', respects: 33 },
 ];
-
+ 
 // ── Data layer ────────────────────────────────────────────────────
-
+ 
 async function loadProjects() {
   if (USE_SUPABASE) {
     try {
@@ -59,24 +59,26 @@ async function loadProjects() {
   setDbStatus('local');
   return localLoad();
 }
-
+ 
 function localLoad() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) { try { return JSON.parse(raw); } catch (e) {} }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULTS));
   return DEFAULTS;
 }
-
+ 
 async function insertProject(project) {
   if (USE_SUPABASE) {
     const { data, error } = await db
       .from('graves')
       .insert([{
-        name:        project.name,
-        description: project.desc || '',
-        cause:       project.cause,
-        epitaph:     project.epitaph || '',
-        respects:    0,
+        name:            project.name,
+        description:     project.desc || '',
+        cause:           project.cause,
+        epitaph:         project.epitaph || '',
+        github_username: project.github_username || '',
+        respects:        0,
+        status:          'buried',
       }])
       .select()
       .single();
@@ -89,7 +91,19 @@ async function insertProject(project) {
     return project;
   }
 }
-
+ 
+async function exhumeGrave(id) {
+  if (USE_SUPABASE) {
+    const { error } = await db.rpc('exhume_grave', { grave_id: id });
+    if (error) throw error;
+  } else {
+    const projects = localLoad();
+    const p = projects.find(x => x.id === id);
+    if (p) { p.status = 'risen'; p.revived_at = new Date().toISOString(); }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  }
+}
+ 
 async function incrementRespects(id) {
   if (USE_SUPABASE) {
     const { data, error } = await db.rpc('increment_respects', { grave_id: id });
@@ -105,7 +119,7 @@ async function incrementRespects(id) {
     }
   }
 }
-
+ 
 async function incrementSolidarity(id) {
   if (USE_SUPABASE) {
     const { data, error } = await db.rpc('increment_solidarity', { grave_id: id });
@@ -121,7 +135,7 @@ async function incrementSolidarity(id) {
     }
   }
 }
-
+ 
 async function loadCondolences(graveId) {
   if (USE_SUPABASE) {
     const { data, error } = await db
@@ -136,7 +150,7 @@ async function loadCondolences(graveId) {
   const raw = localStorage.getItem(`condolences_${graveId}`);
   return raw ? JSON.parse(raw) : [];
 }
-
+ 
 async function insertCondolence(graveId, message) {
   if (USE_SUPABASE) {
     const { data, error } = await db
@@ -154,7 +168,7 @@ async function insertCondolence(graveId, message) {
     return entry;
   }
 }
-
+ 
 async function loadWeeklyDigest() {
   if (!USE_SUPABASE) return null;
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -168,7 +182,7 @@ async function loadWeeklyDigest() {
   if (error) return null;
   return data;
 }
-
+ 
 // ── Keep Supabase awake (prevents free tier pausing) ─────────────
 if (USE_SUPABASE) {
   const FOUR_DAYS = 4 * 24 * 60 * 60 * 1000;

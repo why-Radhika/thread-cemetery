@@ -160,12 +160,38 @@
     </div>
   </div>
 
+  <!-- ── View toggle (Grid / Map / Risen) ── -->
+  <div class="view-toggle-wrap">
+    <button class="view-btn active" id="btnGrid"  onclick="setView('grid')">⊞ Grid</button>
+    <button class="view-btn"        id="btnRisen" onclick="setView('risen')">🌿 Risen</button>
+    <button class="view-btn"        id="btnMap"   onclick="setView('map')">🗺 Map</button>
+  </div>
+
   <!-- ── Results count ── -->
   <div class="results-count" id="resultsCount"></div>
 
   <!-- ── Graveyard ── -->
   <div class="graveyard">
     <div class="graveyard-ground" id="graveyardGrid"></div>
+  </div>
+
+  <!-- ── Risen section ── -->
+  <div id="risenSection" style="display:none;">
+    <div class="risen-header">
+      <div class="risen-title">🌿 The Risen</div>
+      <p class="risen-subtitle">Projects that came back from the dead.</p>
+    </div>
+    <div class="graveyard">
+      <div class="graveyard-ground" id="risenGrid"></div>
+    </div>
+  </div>
+
+  <!-- ── Map view ── -->
+  <div id="mapSection" style="display:none;">
+    <div class="map-wrap">
+      <div class="map-hint">Click and drag to explore · Click a stone to open</div>
+      <canvas id="mapCanvas"></canvas>
+    </div>
   </div>
 
   <div class="ground-line"></div>
@@ -213,6 +239,13 @@
         <label>Epitaph <span style="opacity:0.5; font-style:italic; text-transform:none; letter-spacing:0">(optional)</span></label>
         <input type="text" id="fEpitaph" placeholder="It ran, briefly, in my head…" maxlength="100"/>
       </div>
+      <div class="field">
+        <label>GitHub Username <span style="opacity:0.5; font-style:italic; text-transform:none; letter-spacing:0">(optional — links your grave to your profile)</span></label>
+        <div class="github-input-wrap">
+          <span class="github-prefix">github.com/</span>
+          <input type="text" id="fGithub" placeholder="your-username" maxlength="39"/>
+        </div>
+      </div>
 
       <button class="submit-btn" onclick="buryProject()">⚰ &nbsp; Commit to the Ground</button>
     </div>
@@ -234,6 +267,11 @@
       <div class="detail-section-label">Cause of Death</div>
       <div><span class="detail-cause" id="dCause"></span></div>
       <div class="detail-date" id="dDate"></div>
+      <div id="dGithubWrap" style="display:none; margin-top:8px;">
+        <a class="detail-github" id="dGithubLink" href="#" target="_blank" rel="noopener">
+          <span>⌥</span> <span id="dGithubName"></span>
+        </a>
+      </div>
 
       <div id="dEpitaphWrap" style="margin-top:16px; display:none;">
         <div class="detail-divider"></div>
@@ -250,6 +288,9 @@
         </button>
         <button class="detail-respect-btn" id="detailShareBtn" onclick="shareGrave()">
           🔗 Share
+        </button>
+        <button class="detail-respect-btn detail-exhume-btn" id="detailExhumeBtn" onclick="exhumeProject()">
+          🌿 Exhume
         </button>
       </div>
 

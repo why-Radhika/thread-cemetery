@@ -68,6 +68,25 @@ function clearSearch() {
   renderGraveyard();
 }
 
+// ── View mode ─────────────────────────────────────────────────────
+let currentView = 'grid';
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('btnGrid').classList.toggle('active',  view === 'grid');
+  document.getElementById('btnRisen').classList.toggle('active', view === 'risen');
+  document.getElementById('btnMap').classList.toggle('active',   view === 'map');
+
+  document.querySelector('.graveyard').style.display        = view === 'grid'  ? '' : 'none';
+  document.getElementById('risenSection').style.display     = view === 'risen' ? '' : 'none';
+  document.getElementById('mapSection').style.display       = view === 'map'   ? '' : 'none';
+  document.querySelector('.search-filter-wrap').style.display = view === 'grid' ? '' : 'none';
+  document.getElementById('resultsCount').style.display     = view === 'grid'  ? '' : 'none';
+
+  if (view === 'risen') renderRisen(cachedProjects || localLoad());
+  if (view === 'map')   renderMap(cachedProjects || localLoad());
+}
+
 // ── Render: full page ─────────────────────────────────────────────
 async function renderAll() {
   showSkeletons();
@@ -86,13 +105,14 @@ function showSkeletons() {
 
 // ── Render: stats bar ─────────────────────────────────────────────
 function renderStats(projects) {
-  document.getElementById('statTotal').textContent = projects.length;
+  const buried = projects.filter(p => p.status !== 'risen');
+  document.getElementById('statTotal').textContent = buried.length;
 
   const totalRespects = projects.reduce((s, p) => s + (p.respects || 0), 0);
   document.getElementById('statRespects').textContent = totalRespects;
 
   const counts = {};
-  projects.forEach(p => { if (p.cause) counts[p.cause] = (counts[p.cause] || 0) + 1; });
+  buried.forEach(p => { if (p.cause) counts[p.cause] = (counts[p.cause] || 0) + 1; });
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   const causeEl = document.getElementById('statCause');
   if (top) {
@@ -101,10 +121,30 @@ function renderStats(projects) {
   }
 }
 
-// ── Render: graveyard (uses cached data, no new fetch) ────────────
+// ── Render: graveyard (uses cached data) ─────────────────────────
 function renderGraveyard() {
   const all = cachedProjects || localLoad();
   renderGrid(all);
+}
+
+// ── Render: risen section ─────────────────────────────────────────
+function renderRisen(all) {
+  const grid   = document.getElementById('risenGrid');
+  const risen  = all.filter(p => p.status === 'risen');
+  grid.innerHTML = '';
+
+  if (risen.length === 0) {
+    grid.innerHTML = `<div class="empty-state">
+      <p>No projects have risen yet.</p>
+      <small>Exhume a grave to bring it back.</small>
+    </div>`;
+    return;
+  }
+  risen.forEach(p => {
+    const el = makeTombstone(p);
+    el.classList.add('risen');
+    grid.appendChild(el);
+  });
 }
 
 // ── Render: tombstone grid ────────────────────────────────────────
@@ -113,7 +153,7 @@ function renderGrid(all) {
   const countEl = document.getElementById('resultsCount');
   grid.innerHTML = '';
 
-  const projects    = applyFilters(all);
+  const projects    = applyFilters(all.filter(p => p.status !== 'risen'));
   const isFiltering = activeFilter !== 'all' || searchQuery;
 
   countEl.textContent = isFiltering
@@ -201,7 +241,263 @@ function makeTombstone(p) {
   return el;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// ── Map view ──────────────────────────────────────────────────────
+let mapState = { offsetX: 0, offsetY: 0, dragging: false, startX: 0, startY: 0, stones: [] };
+
+function renderMap(all) {
+  const canvas  = document.getElementById('mapCanvas');
+  const ctx     = canvas.getContext('2d');
+  const DPR     = window.devicePixelRatio || 1;
+  const W       = canvas.offsetWidth;
+  const H       = canvas.offsetHeight;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const buried = all.filter(p => p.status !== 'risen');
+
+  // Lay out stones in a grid with natural scatter
+  const COLS     = Math.ceil(Math.sqrt(buried.length * 1.6));
+  const CELL_W   = 180;
+  const CELL_H   = 200;
+  const MAP_W    = COLS * CELL_W + 120;
+  const MAP_H    = Math.ceil(buried.length / COLS) * CELL_H + 140;
+
+  mapState.stones = buried.map((p, i) => {
+    const col  = i % COLS;
+    const row  = Math.floor(i / COLS);
+    const jitX = (Math.sin(i * 7.3) * 28);
+    const jitY = (Math.cos(i * 4.1) * 18);
+    const tilt = (Math.sin(i * 2.7) * 4);
+    return {
+      p,
+      x:    60 + col * CELL_W + CELL_W / 2 + jitX,
+      y:    60 + row * CELL_H + 80 + jitY,
+      tilt,
+      w:    100, h: 120,
+    };
+  });
+
+  // Centre map initially
+  if (mapState.offsetX === 0 && mapState.offsetY === 0) {
+    mapState.offsetX = (W - MAP_W) / 2;
+    mapState.offsetY = 20;
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Ground
+    ctx.fillStyle = '#0d0d12';
+    ctx.fillRect(0, 0, W, H);
+
+    // Subtle grid lines (ground texture)
+    ctx.strokeStyle = 'rgba(58,58,80,0.2)';
+    ctx.lineWidth = 1;
+    for (let gx = (mapState.offsetX % 60); gx < W; gx += 60) {
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
+    }
+    for (let gy = (mapState.offsetY % 60); gy < H; gy += 60) {
+      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
+    }
+
+    ctx.save();
+    ctx.translate(mapState.offsetX, mapState.offsetY);
+
+    mapState.stones.forEach(s => {
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(s.tilt * Math.PI / 180);
+
+      const isRisen = s.p.status === 'risen';
+      const stoneColor  = isRisen ? '#1a2e1a' : '#1e1e2a';
+      const borderColor = isRisen ? '#4a6741' : '#3a3a50';
+      const glowColor   = isRisen ? 'rgba(74,103,65,0.3)' : 'rgba(232,160,48,0.0)';
+
+      // Glow
+      if (isRisen) {
+        const grd = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
+        grd.addColorStop(0, 'rgba(74,103,65,0.2)');
+        grd.addColorStop(1, 'rgba(74,103,65,0)');
+        ctx.fillStyle = grd;
+        ctx.fillRect(-60, -70, 120, 120);
+      }
+
+      // Stone arch shape
+      const sw = s.w * 0.5, sh = s.h * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(-sw, sh);
+      ctx.lineTo(-sw, -sh * 0.5);
+      ctx.quadraticCurveTo(-sw, -sh, 0, -sh);
+      ctx.quadraticCurveTo(sw, -sh, sw, -sh * 0.5);
+      ctx.lineTo(sw, sh);
+      ctx.closePath();
+
+      ctx.fillStyle = stoneColor;
+      ctx.fill();
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Name text
+      ctx.fillStyle = isRisen ? '#6a9460' : '#c8b89a';
+      ctx.font = 'bold 11px Georgia, serif';
+      ctx.textAlign = 'center';
+      const name = s.p.name.length > 14 ? s.p.name.slice(0, 13) + '…' : s.p.name;
+      ctx.fillText(name, 0, -10);
+
+      // Cause
+      ctx.fillStyle = isRisen ? '#4a6741' : '#8a7a65';
+      ctx.font = 'italic 9px Georgia, serif';
+      const cause = (s.p.cause || '').slice(0, 16);
+      ctx.fillText(cause, 0, 8);
+
+      // Respects
+      ctx.fillStyle = '#e8a030';
+      ctx.font = '9px Georgia, serif';
+      ctx.fillText(`🕯 ${s.p.respects || 0}`, 0, 26);
+
+      // Grass tufts at base
+      ctx.strokeStyle = '#3a5230';
+      ctx.lineWidth = 1;
+      [-20, -10, 0, 10, 20].forEach(gx => {
+        ctx.beginPath();
+        ctx.moveTo(gx, sh);
+        ctx.quadraticCurveTo(gx - 3, sh - 7, gx, sh - 12);
+        ctx.stroke();
+      });
+
+      ctx.restore();
+    });
+
+    ctx.restore();
+  }
+
+  draw();
+
+  // ── Interaction ──
+  // Remove old listeners to avoid stacking
+  const old = canvas.cloneNode(true);
+  canvas.parentNode.replaceChild(old, canvas);
+  const c = document.getElementById('mapCanvas');
+  const ctx2 = c.getContext('2d');
+  ctx2.scale(DPR, DPR);
+
+  c.addEventListener('mousedown', e => {
+    mapState.dragging = true;
+    mapState.startX   = e.clientX - mapState.offsetX;
+    mapState.startY   = e.clientY - mapState.offsetY;
+  });
+  window.addEventListener('mouseup', () => { mapState.dragging = false; });
+  c.addEventListener('mousemove', e => {
+    if (!mapState.dragging) return;
+    mapState.offsetX = e.clientX - mapState.startX;
+    mapState.offsetY = e.clientY - mapState.startY;
+    drawMap();
+  });
+
+  // Touch support
+  c.addEventListener('touchstart', e => {
+    mapState.dragging = true;
+    mapState.startX   = e.touches[0].clientX - mapState.offsetX;
+    mapState.startY   = e.touches[0].clientY - mapState.offsetY;
+  });
+  c.addEventListener('touchend', () => { mapState.dragging = false; });
+  c.addEventListener('touchmove', e => {
+    if (!mapState.dragging) return;
+    mapState.offsetX = e.touches[0].clientX - mapState.startX;
+    mapState.offsetY = e.touches[0].clientY - mapState.startY;
+    drawMap();
+    e.preventDefault();
+  }, { passive: false });
+
+  // Click to open grave
+  c.addEventListener('click', e => {
+    const rect = c.getBoundingClientRect();
+    const mx   = (e.clientX - rect.left - mapState.offsetX);
+    const my   = (e.clientY - rect.top  - mapState.offsetY);
+    const hit  = mapState.stones.find(s =>
+      mx >= s.x - s.w * 0.5 && mx <= s.x + s.w * 0.5 &&
+      my >= s.y - s.h * 0.5 && my <= s.y + s.h * 0.5
+    );
+    if (hit) openDetailModal(hit.p.id, hit.p);
+  });
+
+  function drawMap() {
+    const c2   = document.getElementById('mapCanvas');
+    const ctx3 = c2.getContext('2d');
+    ctx3.clearRect(0, 0, W, H);
+    ctx3.fillStyle = '#0d0d12';
+    ctx3.fillRect(0, 0, W, H);
+
+    ctx3.strokeStyle = 'rgba(58,58,80,0.2)';
+    ctx3.lineWidth = 1;
+    for (let gx = (mapState.offsetX % 60); gx < W; gx += 60) {
+      ctx3.beginPath(); ctx3.moveTo(gx, 0); ctx3.lineTo(gx, H); ctx3.stroke();
+    }
+    for (let gy = (mapState.offsetY % 60); gy < H; gy += 60) {
+      ctx3.beginPath(); ctx3.moveTo(0, gy); ctx3.lineTo(W, gy); ctx3.stroke();
+    }
+
+    ctx3.save();
+    ctx3.translate(mapState.offsetX, mapState.offsetY);
+    mapState.stones.forEach(s => {
+      ctx3.save();
+      ctx3.translate(s.x, s.y);
+      ctx3.rotate(s.tilt * Math.PI / 180);
+
+      const isRisen = s.p.status === 'risen';
+      const sw = s.w * 0.5, sh = s.h * 0.5;
+
+      if (isRisen) {
+        const grd = ctx3.createRadialGradient(0, 0, 10, 0, 0, 70);
+        grd.addColorStop(0, 'rgba(74,103,65,0.2)');
+        grd.addColorStop(1, 'rgba(74,103,65,0)');
+        ctx3.fillStyle = grd;
+        ctx3.fillRect(-60, -70, 120, 120);
+      }
+
+      ctx3.beginPath();
+      ctx3.moveTo(-sw, sh);
+      ctx3.lineTo(-sw, -sh * 0.5);
+      ctx3.quadraticCurveTo(-sw, -sh, 0, -sh);
+      ctx3.quadraticCurveTo(sw, -sh, sw, -sh * 0.5);
+      ctx3.lineTo(sw, sh);
+      ctx3.closePath();
+      ctx3.fillStyle   = isRisen ? '#1a2e1a' : '#1e1e2a';
+      ctx3.fill();
+      ctx3.strokeStyle = isRisen ? '#4a6741' : '#3a3a50';
+      ctx3.lineWidth   = 1.5;
+      ctx3.stroke();
+
+      ctx3.fillStyle = isRisen ? '#6a9460' : '#c8b89a';
+      ctx3.font = 'bold 11px Georgia, serif';
+      ctx3.textAlign = 'center';
+      const name = s.p.name.length > 14 ? s.p.name.slice(0, 13) + '…' : s.p.name;
+      ctx3.fillText(name, 0, -10);
+
+      ctx3.fillStyle = isRisen ? '#4a6741' : '#8a7a65';
+      ctx3.font = 'italic 9px Georgia, serif';
+      ctx3.fillText((s.p.cause || '').slice(0, 16), 0, 8);
+
+      ctx3.fillStyle = '#e8a030';
+      ctx3.font = '9px Georgia, serif';
+      ctx3.fillText(`🕯 ${s.p.respects || 0}`, 0, 26);
+
+      ctx3.strokeStyle = '#3a5230';
+      ctx3.lineWidth = 1;
+      [-20, -10, 0, 10, 20].forEach(gx => {
+        ctx3.beginPath();
+        ctx3.moveTo(gx, sh);
+        ctx3.quadraticCurveTo(gx - 3, sh - 7, gx, sh - 12);
+        ctx3.stroke();
+      });
+
+      ctx3.restore();
+    });
+    ctx3.restore();
+  }
+}
 function highlight(text, query) {
   if (!query) return text;
   const esc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
