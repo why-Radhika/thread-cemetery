@@ -56,7 +56,15 @@
     </div>
   </header>
 
-  <!-- ── Stats ── -->
+  <!-- ── Weekly Digest Banner ── -->
+  <div id="weeklyDigest" style="display:none;">
+    <div class="digest-banner">
+      <div class="digest-label">⚰ Most Mourned This Week</div>
+      <div class="digest-name" id="digestName"></div>
+      <div class="digest-meta" id="digestMeta"></div>
+      <button class="digest-btn" id="digestBtn">View Grave →</button>
+    </div>
+  </div>
   <div class="stats-bar" id="statsBar">
     <div class="stat">
       <div class="stat-number" id="statTotal">0</div>
@@ -237,9 +245,27 @@
         <button class="detail-respect-btn" id="detailRespectBtn" onclick="payRespectFromDetail()">
           🕯 Pay Respects &nbsp;<span id="detailRespectCount"></span>
         </button>
-        <button class="detail-respect-btn" id="detailShareBtn" onclick="shareGrave()">
-          🔗 Share Grave
+        <button class="detail-respect-btn" id="detailSolidarityBtn" onclick="markSolidarity()">
+          🤝 Me Too &nbsp;<span id="detailSolidarityCount"></span>
         </button>
+        <button class="detail-respect-btn" id="detailShareBtn" onclick="shareGrave()">
+          🔗 Share
+        </button>
+      </div>
+
+      <!-- Condolences -->
+      <div class="condolences-wrap">
+        <div class="detail-divider"></div>
+        <div class="detail-section-label">Condolences</div>
+        <div class="condolences-list" id="condolencesList">
+          <div class="condolences-loading">Loading…</div>
+        </div>
+        <div class="condolence-form">
+          <input type="text" id="condolenceInput" class="condolence-input"
+            placeholder="Leave a short message… (200 chars)" maxlength="200"
+            onkeydown="if(event.key==='Enter') submitCondolence()"/>
+          <button class="condolence-submit" onclick="submitCondolence()">Send</button>
+        </div>
       </div>
     </div>
   </div>

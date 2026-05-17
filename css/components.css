@@ -194,6 +194,146 @@
 .detail-respect-btn:hover { border-color: var(--candle); color: var(--candle); }
 .detail-respect-btn.paid  { border-color: var(--candle); color: var(--candle); }
 
+/* ── Weekly Digest Banner ── */
+.digest-banner {
+  position: relative;
+  z-index: 10;
+  max-width: 760px;
+  margin: 0 auto 32px;
+  padding: 18px 28px;
+  border: 1px solid var(--stone-border);
+  border-left: 3px solid var(--candle);
+  background: linear-gradient(90deg, rgba(232,160,48,0.06), transparent);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  animation: fadeUp 1s ease 1s forwards;
+  opacity: 0;
+}
+.digest-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--candle);
+  white-space: nowrap;
+}
+.digest-name {
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--parchment);
+  flex: 1;
+}
+.digest-meta {
+  font-family: 'Cormorant Garant', serif;
+  font-style: italic;
+  font-size: 0.82rem;
+  color: var(--parchment-dim);
+}
+.digest-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--candle);
+  background: transparent;
+  border: 1px solid var(--candle);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.digest-btn:hover { background: var(--candle-glow); }
+
+/* ── Condolences ── */
+.condolences-wrap {
+  margin-top: 4px;
+}
+.condolences-list {
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 10px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--stone-border) transparent;
+}
+.condolence-item {
+  background: var(--ink);
+  border-left: 2px solid var(--stone-border);
+  padding: 8px 12px;
+  font-family: 'Cormorant Garant', serif;
+  font-size: 0.88rem;
+  color: var(--parchment);
+  line-height: 1.5;
+}
+.condolence-time {
+  font-size: 0.65rem;
+  color: var(--parchment-dim);
+  opacity: 0.5;
+  margin-top: 4px;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.05em;
+}
+.condolences-empty {
+  font-family: 'Cormorant Garant', serif;
+  font-style: italic;
+  font-size: 0.82rem;
+  color: var(--parchment-dim);
+  opacity: 0.5;
+  text-align: center;
+  padding: 12px 0;
+}
+.condolences-loading {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  color: var(--parchment-dim);
+  opacity: 0.4;
+  text-align: center;
+  padding: 12px 0;
+}
+.condolence-form {
+  display: flex;
+  gap: 8px;
+}
+.condolence-input {
+  flex: 1;
+  background: var(--ink);
+  border: 1px solid var(--stone-border);
+  color: var(--parchment);
+  font-family: 'Cormorant Garant', serif;
+  font-size: 0.88rem;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.condolence-input:focus { border-color: var(--parchment-dim); }
+.condolence-input::placeholder { color: var(--parchment-dim); opacity: 0.35; }
+.condolence-submit {
+  font-family: 'Cinzel', serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--parchment);
+  background: transparent;
+  border: 1px solid var(--stone-border);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.condolence-submit:hover { border-color: var(--candle); color: var(--candle); }
+
+/* ── Me Too solidarity button state ── */
+.detail-respect-btn.solidarity-marked {
+  border-color: var(--moss-light);
+  color: var(--moss-light);
+}
+
 /* ── Sort & Random row ── */
 .sort-random-row {
   display: flex;

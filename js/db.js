@@ -105,3 +105,78 @@ async function incrementRespects(id) {
     }
   }
 }
+
+async function incrementSolidarity(id) {
+  if (USE_SUPABASE) {
+    const { data, error } = await db.rpc('increment_solidarity', { grave_id: id });
+    if (error) throw error;
+    return data;
+  } else {
+    const projects = localLoad();
+    const p = projects.find(x => x.id === id);
+    if (p) {
+      p.solidarity = (p.solidarity || 0) + 1;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      return p.solidarity;
+    }
+  }
+}
+
+async function loadCondolences(graveId) {
+  if (USE_SUPABASE) {
+    const { data, error } = await db
+      .from('condolences')
+      .select('*')
+      .eq('grave_id', graveId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data;
+  }
+  // Local fallback: store condolences in localStorage per grave
+  const raw = localStorage.getItem(`condolences_${graveId}`);
+  return raw ? JSON.parse(raw) : [];
+}
+
+async function insertCondolence(graveId, message) {
+  if (USE_SUPABASE) {
+    const { data, error } = await db
+      .from('condolences')
+      .insert([{ grave_id: graveId, message }])
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  } else {
+    const existing = JSON.parse(localStorage.getItem(`condolences_${graveId}`) || '[]');
+    const entry = { id: 'c_' + Date.now(), grave_id: graveId, message, created_at: new Date().toISOString() };
+    existing.push(entry);
+    localStorage.setItem(`condolences_${graveId}`, JSON.stringify(existing));
+    return entry;
+  }
+}
+
+async function loadWeeklyDigest() {
+  if (!USE_SUPABASE) return null;
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db
+    .from('graves')
+    .select('*')
+    .gte('created_at', oneWeekAgo)
+    .order('respects', { ascending: false })
+    .limit(1)
+    .single();
+  if (error) return null;
+  return data;
+}
+
+// ── Keep Supabase awake (prevents free tier pausing) ─────────────
+if (USE_SUPABASE) {
+  const FOUR_DAYS = 4 * 24 * 60 * 60 * 1000;
+  const lastPing  = localStorage.getItem('sb_last_ping');
+  const now       = Date.now();
+  if (!lastPing || now - parseInt(lastPing) > FOUR_DAYS) {
+    db.from('graves').select('id').limit(1).then(() => {
+      localStorage.setItem('sb_last_ping', String(now));
+    });
+  }
+}

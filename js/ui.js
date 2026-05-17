@@ -65,11 +65,25 @@ function openDetailModal(id, p) {
     epitaphWrap.style.display = 'none';
   }
 
+  // Respects
   document.getElementById('detailRespectBtn').classList.remove('paid');
   document.getElementById('detailRespectCount').textContent = p.respects || 0;
+
+  // Solidarity — restore marked state from localStorage
+  const solidarityBtn = document.getElementById('detailSolidarityBtn');
+  solidarityBtn.classList.remove('solidarity-marked');
+  document.getElementById('detailSolidarityCount').textContent = p.solidarity || 0;
+  if (localStorage.getItem(`solidarity_marked_${id}`)) {
+    solidarityBtn.classList.add('solidarity-marked');
+  }
+
+  // Condolences
+  renderCondolences(id);
+
   openModal('detailModal');
 }
 
+// ── Respects ──────────────────────────────────────────────────────
 async function payRespectFromDetail() {
   if (!currentDetailId) return;
   try {
@@ -106,12 +120,126 @@ async function quickRespect(id, el) {
   }
 }
 
+// ── Solidarity ────────────────────────────────────────────────────
+async function markSolidarity() {
+  if (!currentDetailId) return;
+  const markedKey = `solidarity_marked_${currentDetailId}`;
+
+  if (localStorage.getItem(markedKey)) {
+    showToast('You already marked solidarity for this grave.');
+    return;
+  }
+
+  try {
+    const newCount = await incrementSolidarity(currentDetailId);
+    localStorage.setItem(markedKey, '1');
+
+    if (cachedProjects) {
+      const p = cachedProjects.find(x => x.id === currentDetailId);
+      if (p) p.solidarity = (p.solidarity || 0) + 1;
+    }
+
+    document.getElementById('detailSolidarityCount').textContent = newCount || '–';
+    document.getElementById('detailSolidarityBtn').classList.add('solidarity-marked');
+    showToast('🤝 Solidarity marked. You are not alone.');
+  } catch (e) {
+    showToast('Could not save solidarity.');
+  }
+}
+
+// ── Condolences ───────────────────────────────────────────────────
+async function renderCondolences(graveId) {
+  const list = document.getElementById('condolencesList');
+  list.innerHTML = '<div class="condolences-loading">Loading…</div>';
+
+  try {
+    const items = await loadCondolences(graveId);
+    if (!items || items.length === 0) {
+      list.innerHTML = '<div class="condolences-empty">No condolences yet. Be the first to leave a message.</div>';
+      return;
+    }
+
+    list.innerHTML = items.map(c => {
+      const timeAgo = formatTimeAgo(c.created_at);
+      return `
+        <div class="condolence-item">
+          <div>${escHtmlUi(c.message)}</div>
+          <div class="condolence-time">${timeAgo}</div>
+        </div>`;
+    }).join('');
+
+    list.scrollTop = list.scrollHeight;
+  } catch (e) {
+    list.innerHTML = '<div class="condolences-empty">Could not load condolences.</div>';
+  }
+}
+
+async function submitCondolence() {
+  if (!currentDetailId) return;
+  const input   = document.getElementById('condolenceInput');
+  const message = input.value.trim();
+  if (!message) { showToast('Write something before sending.'); return; }
+
+  const btn = document.querySelector('.condolence-submit');
+  btn.textContent = '…';
+  btn.disabled    = true;
+
+  try {
+    await insertCondolence(currentDetailId, message);
+    input.value = '';
+    await renderCondolences(currentDetailId);
+    showToast('✉ Condolence left.');
+  } catch (e) {
+    showToast('Could not send condolence.');
+  } finally {
+    btn.textContent = 'Send';
+    btn.disabled    = false;
+  }
+}
+
+function formatTimeAgo(isoString) {
+  if (!isoString) return '';
+  const diff  = Date.now() - new Date(isoString).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins  < 1)  return 'just now';
+  if (mins  < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days  < 7)  return `${days}d ago`;
+  return new Date(isoString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function escHtmlUi(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── Weekly Digest ─────────────────────────────────────────────────
+async function loadAndShowDigest() {
+  try {
+    const grave = await loadWeeklyDigest();
+    if (!grave) return;
+
+    document.getElementById('digestName').textContent = grave.name;
+    document.getElementById('digestMeta').textContent =
+      `${grave.respects || 0} respects · ${grave.cause || ''}`;
+
+    document.getElementById('digestBtn').onclick = () => openDetailModal(grave.id, grave);
+    document.getElementById('weeklyDigest').style.display = 'block';
+  } catch (e) {
+    // Digest is non-critical, fail silently
+  }
+}
+
 // ── Modal helpers ─────────────────────────────────────────────────
 function openModal(id) {
   document.getElementById(id).classList.add('open');
   document.body.style.overflow = 'hidden';
   if (id === 'detailModal' && currentDetailId) {
-    // Update URL so share button works, but don't show spotlight
     history.replaceState(null, '', `#grave-${currentDetailId}`);
   }
 }
@@ -152,9 +280,9 @@ function shareGrave() {
       showToast('🔗 Grave link copied to clipboard.');
       const btn  = document.getElementById('detailShareBtn');
       const orig = btn.innerHTML;
-      btn.innerHTML          = '✓ Copied!';
-      btn.style.borderColor  = 'var(--candle)';
-      btn.style.color        = 'var(--candle)';
+      btn.innerHTML         = '✓ Copied!';
+      btn.style.borderColor = 'var(--candle)';
+      btn.style.color       = 'var(--candle)';
       setTimeout(() => {
         btn.innerHTML         = orig;
         btn.style.borderColor = '';
@@ -193,8 +321,8 @@ function showSpotlight(p) {
   document.getElementById('spRespectCount').textContent = p.respects || 0;
 
   const el = document.getElementById('graveSpotlight');
-  el.style.display = '';           // clear any inline style
-  el.classList.add('active');      // CSS handles display:flex
+  el.style.display = '';
+  el.classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 
@@ -230,23 +358,19 @@ async function checkHashOnLoad() {
   if (!hash || !hash.startsWith('#grave-')) return;
 
   const id = hash.replace('#grave-', '');
-
-  // Guarantee fresh data — don't rely on cachedProjects being set
   let projects = cachedProjects;
-  if (!projects || projects.length === 0) {
-    projects = await loadProjects();
-  }
+  if (!projects || projects.length === 0) projects = await loadProjects();
 
   const p = projects.find(x => String(x.id) === String(id));
-  console.log('[spotlight] hash id:', id, '| found:', p ? p.name : 'NOT FOUND', '| total projects:', projects.length);
-
   if (p) {
     showSpotlight(p);
   } else {
-    // ID not found — show a gentle fallback
-    showToast('This grave could not be found. It may have been moved.');
+    showToast('This grave could not be found.');
   }
 }
 
 // ── Init ──────────────────────────────────────────────────────────
-renderAll().then(() => checkHashOnLoad());
+renderAll().then(() => {
+  checkHashOnLoad();
+  loadAndShowDigest();
+});
