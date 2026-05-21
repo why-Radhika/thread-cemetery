@@ -129,22 +129,23 @@ function renderGraveyard() {
 
 // ── Render: risen section ─────────────────────────────────────────
 function renderRisen(all) {
-  const grid   = document.getElementById('risenGrid');
-  const risen  = all.filter(p => p.status === 'risen');
-  grid.innerHTML = '';
+  const container = document.getElementById('risenGrid');
+  const risen     = all.filter(p => p.status === 'risen');
+  container.innerHTML = '';
 
   if (risen.length === 0) {
-    grid.innerHTML = `<div class="empty-state">
+    container.innerHTML = `<div class="empty-state">
       <p>No projects have risen yet.</p>
-      <small>Exhume a grave to bring it back.</small>
+      <small>Open any grave and click 🌿 Exhume to bring it back.</small>
     </div>`;
     return;
   }
-  risen.forEach(p => {
-    const el = makeTombstone(p);
-    el.classList.add('risen');
-    grid.appendChild(el);
-  });
+
+  // Use a proper section-grid so cards are normal tombstone size
+  const grid = document.createElement('div');
+  grid.className = 'section-grid';
+  risen.forEach(p => grid.appendChild(makeTombstone(p)));
+  container.appendChild(grid);
 }
 
 // ── Render: tombstone grid ────────────────────────────────────────
@@ -153,7 +154,7 @@ function renderGrid(all) {
   const countEl = document.getElementById('resultsCount');
   grid.innerHTML = '';
 
-  const projects    = applyFilters(all.filter(p => p.status !== 'risen'));
+  const projects    = applyFilters(all);
   const isFiltering = activeFilter !== 'all' || searchQuery;
 
   countEl.textContent = isFiltering
@@ -209,7 +210,7 @@ function renderGrid(all) {
 
 function makeTombstone(p) {
   const el = document.createElement('div');
-  el.className = 'tombstone';
+  el.className = 'tombstone' + (p.status === 'risen' ? ' risen' : '');
   el.style.transform = `rotate(${(Math.random() - 0.5) * 3.5}deg)`;
   el.onclick = () => openDetailModal(p.id, p);
 
