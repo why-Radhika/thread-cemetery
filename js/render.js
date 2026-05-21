@@ -243,261 +243,470 @@ function makeTombstone(p) {
 }
 
 // ── Map view ──────────────────────────────────────────────────────
-let mapState = { offsetX: 0, offsetY: 0, dragging: false, startX: 0, startY: 0, stones: [] };
+let mapState = {
+  offsetX: 0, offsetY: 0,
+  dragging: false, startX: 0, startY: 0,
+  stones: [], hoveredId: null,
+  initialised: false,
+};
 
 function renderMap(all) {
-  const canvas  = document.getElementById('mapCanvas');
-  const ctx     = canvas.getContext('2d');
-  const DPR     = window.devicePixelRatio || 1;
-  const W       = canvas.offsetWidth;
-  const H       = canvas.offsetHeight;
+  const canvas = document.getElementById('mapCanvas');
+  const DPR    = window.devicePixelRatio || 1;
+  const W      = canvas.offsetWidth;
+  const H      = canvas.offsetHeight;
   canvas.width  = W * DPR;
   canvas.height = H * DPR;
-  ctx.scale(DPR, DPR);
 
-  const buried = all.filter(p => p.status !== 'risen');
+  // Include ALL graves — buried and risen
+  const COLS   = Math.max(3, Math.ceil(Math.sqrt(all.length * 1.4)));
+  const CELL_W = 170;
+  const CELL_H = 220;
+  const PAD    = 80;
 
-  // Lay out stones in a grid with natural scatter
-  const COLS     = Math.ceil(Math.sqrt(buried.length * 1.6));
-  const CELL_W   = 180;
-  const CELL_H   = 200;
-  const MAP_W    = COLS * CELL_W + 120;
-  const MAP_H    = Math.ceil(buried.length / COLS) * CELL_H + 140;
-
-  mapState.stones = buried.map((p, i) => {
+  mapState.stones = all.map((p, i) => {
     const col  = i % COLS;
     const row  = Math.floor(i / COLS);
-    const jitX = (Math.sin(i * 7.3) * 28);
-    const jitY = (Math.cos(i * 4.1) * 18);
-    const tilt = (Math.sin(i * 2.7) * 4);
+    const seed = i * 137.508;
+    const jitX = Math.sin(seed) * 30;
+    const jitY = Math.cos(seed * 0.7) * 18;
+    const tilt = Math.sin(seed * 0.3) * 5;
     return {
       p,
-      x:    60 + col * CELL_W + CELL_W / 2 + jitX,
-      y:    60 + row * CELL_H + 80 + jitY,
-      tilt,
-      w:    100, h: 120,
+      x:    PAD + col * CELL_W + CELL_W / 2 + jitX,
+      y:    PAD + row * CELL_H + 100        + jitY,
+      tilt, w: 88, h: 110,
     };
   });
 
-  // Centre map initially
-  if (mapState.offsetX === 0 && mapState.offsetY === 0) {
-    mapState.offsetX = (W - MAP_W) / 2;
-    mapState.offsetY = 20;
+  if (!mapState.initialised) {
+    mapState.offsetX    = 40;
+    mapState.offsetY    = 20;
+    mapState.initialised = true;
   }
 
-  function draw() {
+  // ── Core draw ──────────────────────────────────────────────────
+  function drawAll() {
+    const ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.scale(DPR, DPR);
     ctx.clearRect(0, 0, W, H);
 
-    // Ground
-    ctx.fillStyle = '#0d0d12';
+    // ── Background gradient ──
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#08080e');
+    bg.addColorStop(1, '#0d0d14');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle grid lines (ground texture)
-    ctx.strokeStyle = 'rgba(58,58,80,0.2)';
-    ctx.lineWidth = 1;
-    for (let gx = (mapState.offsetX % 60); gx < W; gx += 60) {
-      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
-    }
-    for (let gy = (mapState.offsetY % 60); gy < H; gy += 60) {
-      ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke();
-    }
-
+    // ── Ground texture — irregular dark patches ──
     ctx.save();
     ctx.translate(mapState.offsetX, mapState.offsetY);
+    drawGround(ctx);
+    ctx.restore();
 
-    mapState.stones.forEach(s => {
-      ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.rotate(s.tilt * Math.PI / 180);
+    // ── Winding paths between rows ──
+    ctx.save();
+    ctx.translate(mapState.offsetX, mapState.offsetY);
+    drawPaths(ctx);
+    ctx.restore();
 
-      const isRisen = s.p.status === 'risen';
-      const stoneColor  = isRisen ? '#1a2e1a' : '#1e1e2a';
-      const borderColor = isRisen ? '#4a6741' : '#3a3a50';
-      const glowColor   = isRisen ? 'rgba(74,103,65,0.3)' : 'rgba(232,160,48,0.0)';
+    // ── Stones ──
+    ctx.save();
+    ctx.translate(mapState.offsetX, mapState.offsetY);
+    mapState.stones.forEach(s => drawStone(ctx, s));
+    ctx.restore();
 
-      // Glow
-      if (isRisen) {
-        const grd = ctx.createRadialGradient(0, 0, 10, 0, 0, 70);
-        grd.addColorStop(0, 'rgba(74,103,65,0.2)');
-        grd.addColorStop(1, 'rgba(74,103,65,0)');
-        ctx.fillStyle = grd;
-        ctx.fillRect(-60, -70, 120, 120);
-      }
+    // ── Fog at bottom edge ──
+    const fog = ctx.createLinearGradient(0, H * 0.72, 0, H);
+    fog.addColorStop(0, 'rgba(8,8,14,0)');
+    fog.addColorStop(1, 'rgba(8,8,14,0.82)');
+    ctx.fillStyle = fog;
+    ctx.fillRect(0, 0, W, H);
 
-      // Stone arch shape
-      const sw = s.w * 0.5, sh = s.h * 0.5;
-      ctx.beginPath();
-      ctx.moveTo(-sw, sh);
-      ctx.lineTo(-sw, -sh * 0.5);
-      ctx.quadraticCurveTo(-sw, -sh, 0, -sh);
-      ctx.quadraticCurveTo(sw, -sh, sw, -sh * 0.5);
-      ctx.lineTo(sw, sh);
-      ctx.closePath();
-
-      ctx.fillStyle = stoneColor;
-      ctx.fill();
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // Name text
-      ctx.fillStyle = isRisen ? '#6a9460' : '#c8b89a';
-      ctx.font = 'bold 11px Georgia, serif';
-      ctx.textAlign = 'center';
-      const name = s.p.name.length > 14 ? s.p.name.slice(0, 13) + '…' : s.p.name;
-      ctx.fillText(name, 0, -10);
-
-      // Cause
-      ctx.fillStyle = isRisen ? '#4a6741' : '#8a7a65';
-      ctx.font = 'italic 9px Georgia, serif';
-      const cause = (s.p.cause || '').slice(0, 16);
-      ctx.fillText(cause, 0, 8);
-
-      // Respects
-      ctx.fillStyle = '#e8a030';
-      ctx.font = '9px Georgia, serif';
-      ctx.fillText(`🕯 ${s.p.respects || 0}`, 0, 26);
-
-      // Grass tufts at base
-      ctx.strokeStyle = '#3a5230';
-      ctx.lineWidth = 1;
-      [-20, -10, 0, 10, 20].forEach(gx => {
-        ctx.beginPath();
-        ctx.moveTo(gx, sh);
-        ctx.quadraticCurveTo(gx - 3, sh - 7, gx, sh - 12);
-        ctx.stroke();
-      });
-
-      ctx.restore();
-    });
+    // ── Vignette edges ──
+    const vig = ctx.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
 
     ctx.restore();
   }
 
-  draw();
+  // ── Ground — soil patches, grass tufts, pebbles ──
+  function drawGround(ctx) {
+    const ROWS = Math.ceil(all.length / COLS);
+    const TW   = COLS * CELL_W + PAD * 2;
+    const TH   = ROWS * CELL_H + PAD * 2;
 
-  // ── Interaction ──
-  // Remove old listeners to avoid stacking
-  const old = canvas.cloneNode(true);
-  canvas.parentNode.replaceChild(old, canvas);
-  const c = document.getElementById('mapCanvas');
-  const ctx2 = c.getContext('2d');
-  ctx2.scale(DPR, DPR);
+    // Base soil
+    ctx.fillStyle = '#0d0f0d';
+    ctx.fillRect(0, 0, TW, TH);
 
-  c.addEventListener('mousedown', e => {
+    // Soil variation patches
+    for (let i = 0; i < all.length * 3; i++) {
+      const px = (Math.sin(i * 73.1) * 0.5 + 0.5) * TW;
+      const py = (Math.cos(i * 41.7) * 0.5 + 0.5) * TH;
+      const pr = 18 + Math.abs(Math.sin(i * 9.3)) * 28;
+      const pg = ctx.createRadialGradient(px, py, 0, px, py, pr);
+      pg.addColorStop(0, 'rgba(30,28,20,0.35)');
+      pg.addColorStop(1, 'rgba(30,28,20,0)');
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pr, pr * 0.6, Math.sin(i) * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Scattered pebbles
+    for (let i = 0; i < all.length * 4; i++) {
+      const px = (Math.sin(i * 11.3 + 1) * 0.5 + 0.5) * TW;
+      const py = (Math.cos(i * 7.9 + 2)  * 0.5 + 0.5) * TH;
+      const pr = 1.5 + Math.abs(Math.sin(i * 5)) * 2.5;
+      ctx.fillStyle = `rgba(${50 + Math.floor(Math.sin(i)*10)},${48 + Math.floor(Math.cos(i)*8)},${60 + Math.floor(Math.sin(i*2)*6)},0.6)`;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pr, pr * 0.7, Math.sin(i * 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Grass tufts scattered around
+    ctx.strokeStyle = '#2a3d22';
+    ctx.lineWidth   = 1;
+    for (let i = 0; i < all.length * 6; i++) {
+      const gx = (Math.sin(i * 23.7 + 0.5) * 0.5 + 0.5) * TW;
+      const gy = (Math.cos(i * 17.3 + 1.2) * 0.5 + 0.5) * TH;
+      const gh = 5 + Math.abs(Math.sin(i * 4)) * 6;
+      const gl = (Math.sin(i * 6.1) * 4);
+      ctx.strokeStyle = i % 3 === 0 ? '#2a3d22' : '#223318';
+      ctx.beginPath();
+      ctx.moveTo(gx, gy);
+      ctx.quadraticCurveTo(gx + gl, gy - gh * 0.5, gx + gl * 0.4, gy - gh);
+      ctx.stroke();
+    }
+  }
+
+  // ── Winding gravel paths ──
+  function drawPaths(ctx) {
+    const ROWS = Math.ceil(all.length / COLS);
+    ctx.strokeStyle = 'rgba(60,55,45,0.55)';
+    ctx.lineWidth   = 18;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.setLineDash([]);
+
+    // Horizontal path between each row
+    for (let r = 0; r <= ROWS; r++) {
+      const y = PAD + r * CELL_H + 5;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      // Slightly wavy
+      for (let x = 0; x < COLS * CELL_W + PAD * 2; x += 40) {
+        ctx.lineTo(x, y + Math.sin(x * 0.04 + r) * 5);
+      }
+      ctx.stroke();
+    }
+
+    // Path border highlight
+    ctx.strokeStyle = 'rgba(80,72,55,0.3)';
+    ctx.lineWidth   = 1;
+    for (let r = 0; r <= ROWS; r++) {
+      const y = PAD + r * CELL_H + 5;
+      ctx.beginPath();
+      for (let x = 0; x < COLS * CELL_W + PAD * 2; x += 40) {
+        ctx.lineTo(x, y - 9 + Math.sin(x * 0.04 + r) * 5);
+      }
+      ctx.stroke();
+    }
+
+    // Vertical path at left edge
+    ctx.strokeStyle = 'rgba(60,55,45,0.4)';
+    ctx.lineWidth   = 14;
+    ctx.beginPath();
+    for (let y = 0; y < ROWS * CELL_H + PAD * 2; y += 30) {
+      ctx.lineTo(PAD * 0.5, y + Math.sin(y * 0.05) * 4);
+    }
+    ctx.stroke();
+
+    // Gravel dots on path
+    ctx.fillStyle = 'rgba(70,65,50,0.5)';
+    for (let r = 0; r <= ROWS; r++) {
+      const y = PAD + r * CELL_H + 5;
+      for (let x = 10; x < COLS * CELL_W + PAD * 2; x += 12) {
+        const py = y + Math.sin(x * 0.04 + r) * 5;
+        const pr = 0.8 + Math.abs(Math.sin(x * 7.3 + r * 3.1)) * 1.5;
+        ctx.beginPath();
+        ctx.arc(x + Math.sin(x * 3.1) * 3, py + Math.cos(x * 2.7) * 3, pr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // ── Draw a single tombstone ──
+  function drawStone(ctx, s) {
+    const isRisen   = s.p.status === 'risen';
+    const isHovered = mapState.hoveredId === s.p.id;
+    const sw = s.w * 0.5;
+    const sh = s.h * 0.5;
+
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.tilt * Math.PI / 180);
+
+    // ── Ambient glow (risen = green, hovered = amber) ──
+    if (isRisen || isHovered) {
+      const gc = isRisen ? [74, 103, 65] : [232, 160, 48];
+      const gr = ctx.createRadialGradient(0, 0, 10, 0, 0, 80);
+      gr.addColorStop(0, `rgba(${gc[0]},${gc[1]},${gc[2]},${isHovered ? 0.25 : 0.18})`);
+      gr.addColorStop(1, `rgba(${gc[0]},${gc[1]},${gc[2]},0)`);
+      ctx.fillStyle = gr;
+      ctx.fillRect(-80, -80, 160, 160);
+    }
+
+    // ── Shadow beneath stone ──
+    ctx.shadowColor   = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur    = 14;
+    ctx.shadowOffsetY = 6;
+
+    // ── Stone shape — proper Gothic arch ──
+    function stonePath() {
+      ctx.beginPath();
+      ctx.moveTo(-sw, sh);                          // bottom-left
+      ctx.lineTo(-sw, -sh * 0.3);                  // left side up
+      ctx.bezierCurveTo(                            // left arch
+        -sw, -sh * 0.85,
+        -sw * 0.5, -sh,
+        0, -sh
+      );
+      ctx.bezierCurveTo(                            // right arch
+        sw * 0.5, -sh,
+        sw, -sh * 0.85,
+        sw, -sh * 0.3
+      );
+      ctx.lineTo(sw, sh);                           // right side down
+      ctx.closePath();
+    }
+
+    // Stone body fill — gradient for depth
+    stonePath();
+    const stoneGrad = ctx.createLinearGradient(-sw, -sh, sw, sh);
+    if (isRisen) {
+      stoneGrad.addColorStop(0, '#1e2e1e');
+      stoneGrad.addColorStop(1, '#141e14');
+    } else {
+      stoneGrad.addColorStop(0, '#252535');
+      stoneGrad.addColorStop(1, '#181826');
+    }
+    ctx.fillStyle = stoneGrad;
+    ctx.fill();
+
+    // Stone border
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur  = 0;
+    stonePath();
+    ctx.strokeStyle = isRisen
+      ? (isHovered ? '#6a9460' : '#4a6741')
+      : (isHovered ? '#c8b89a' : '#3a3a50');
+    ctx.lineWidth   = isHovered ? 2 : 1.2;
+    ctx.stroke();
+
+    // Inner bevel line (makes it look carved)
+    ctx.save();
+    ctx.scale(0.82, 0.82);
+    stonePath();
+    ctx.strokeStyle = isRisen ? 'rgba(74,103,65,0.2)' : 'rgba(200,184,154,0.08)';
+    ctx.lineWidth   = 0.8;
+    ctx.stroke();
+    ctx.restore();
+
+    // Crack detail on some stones
+    if (!isRisen && Math.sin(s.p.id ? s.p.id.charCodeAt(0) : 0) > 0.2) {
+      ctx.strokeStyle = 'rgba(58,58,80,0.6)';
+      ctx.lineWidth   = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(sw * 0.2, -sh * 0.1);
+      ctx.lineTo(sw * 0.35, sh * 0.25);
+      ctx.stroke();
+    }
+
+    // ── R.I.P. text ──
+    ctx.fillStyle   = isRisen ? 'rgba(106,148,96,0.6)' : 'rgba(138,122,101,0.5)';
+    ctx.font        = `6px 'Georgia', serif`;
+    ctx.textAlign   = 'center';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('✦ R.I.P. ✦', 0, -sh * 0.55);
+
+    // ── Name ──
+    ctx.fillStyle = isRisen ? '#7ab870' : (isHovered ? '#e8d5b8' : '#c8b89a');
+    ctx.font      = `bold ${Math.min(12, 130 / Math.max(s.p.name.length, 6))}px 'Georgia', serif`;
+    const name    = s.p.name.length > 15 ? s.p.name.slice(0, 14) + '…' : s.p.name;
+
+    // Word-wrap name into two lines if needed
+    const words = name.split(' ');
+    if (words.length > 1 && name.length > 10) {
+      const mid  = Math.ceil(words.length / 2);
+      const top  = words.slice(0, mid).join(' ');
+      const bot  = words.slice(mid).join(' ');
+      ctx.fillText(top, 0, -sh * 0.18);
+      ctx.fillText(bot, 0, -sh * 0.18 + 14);
+    } else {
+      ctx.fillText(name, 0, -sh * 0.1);
+    }
+
+    // ── Cause ──
+    ctx.fillStyle = isRisen ? '#4a7a40' : '#6a5c4a';
+    ctx.font      = `italic 8px 'Georgia', serif`;
+    const cause   = (s.p.cause || '').length > 18 ? (s.p.cause || '').slice(0, 17) + '…' : (s.p.cause || '');
+    ctx.fillText(cause, 0, sh * 0.22);
+
+    // ── Divider line ──
+    ctx.strokeStyle = isRisen ? 'rgba(74,103,65,0.3)' : 'rgba(58,58,80,0.5)';
+    ctx.lineWidth   = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-sw * 0.6, sh * 0.35);
+    ctx.lineTo(sw * 0.6,  sh * 0.35);
+    ctx.stroke();
+
+    // ── Respects candle ──
+    ctx.fillStyle = '#e8a030';
+    ctx.font      = `8px 'Georgia', serif`;
+    ctx.fillText(`🕯 ${s.p.respects || 0}`, 0, sh * 0.52);
+
+    // ── Grass tufts at base ──
+    const grassColor = isRisen ? '#3a6030' : '#2a3d22';
+    for (let gi = -3; gi <= 3; gi++) {
+      const gx  = gi * (sw / 3.5);
+      const gh  = 7 + Math.abs(Math.sin(gi * 3.7 + (s.p.respects || 0))) * 6;
+      const gln = Math.sin(gi * 2.1) * 5;
+      ctx.strokeStyle = gi % 2 === 0 ? grassColor : '#223318';
+      ctx.lineWidth   = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(gx, sh + 2);
+      ctx.quadraticCurveTo(gx + gln, sh - gh * 0.5, gx + gln * 0.4, sh - gh);
+      ctx.stroke();
+    }
+
+    // ── Risen special: small flowers ──
+    if (isRisen) {
+      [[-sw * 0.7, sh * 0.1], [sw * 0.65, sh * 0.05]].forEach(([fx, fy]) => {
+        ctx.fillStyle = 'rgba(180,220,140,0.7)';
+        ctx.beginPath();
+        ctx.arc(fx, fy, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,200,0.6)';
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    ctx.restore();
+  }
+
+  // ── Initial draw ──
+  drawAll();
+
+  // ── Replace canvas to remove old event listeners ──
+  const fresh = canvas.cloneNode(false);
+  canvas.parentNode.replaceChild(fresh, canvas);
+  fresh.width  = W * DPR;
+  fresh.height = H * DPR;
+
+  function redraw() {
+    const ctx2 = fresh.getContext('2d');
+    ctx2.save();
+    ctx2.scale(DPR, DPR);
+    ctx2.clearRect(0, 0, W, H);
+
+    const bg2 = ctx2.createLinearGradient(0, 0, 0, H);
+    bg2.addColorStop(0, '#08080e');
+    bg2.addColorStop(1, '#0d0d14');
+    ctx2.fillStyle = bg2;
+    ctx2.fillRect(0, 0, W, H);
+
+    ctx2.save(); ctx2.translate(mapState.offsetX, mapState.offsetY);
+    drawGroundCtx(ctx2);
+    ctx2.restore();
+
+    ctx2.save(); ctx2.translate(mapState.offsetX, mapState.offsetY);
+    drawPathsCtx(ctx2);
+    ctx2.restore();
+
+    ctx2.save(); ctx2.translate(mapState.offsetX, mapState.offsetY);
+    mapState.stones.forEach(s => drawStoneCtx(ctx2, s));
+    ctx2.restore();
+
+    const fog2 = ctx2.createLinearGradient(0, H * 0.72, 0, H);
+    fog2.addColorStop(0, 'rgba(8,8,14,0)');
+    fog2.addColorStop(1, 'rgba(8,8,14,0.82)');
+    ctx2.fillStyle = fog2;
+    ctx2.fillRect(0, 0, W, H);
+
+    const vig2 = ctx2.createRadialGradient(W/2, H/2, H*0.3, W/2, H/2, H);
+    vig2.addColorStop(0, 'rgba(0,0,0,0)');
+    vig2.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx2.fillStyle = vig2;
+    ctx2.fillRect(0, 0, W, H);
+    ctx2.restore();
+  }
+
+  // Bind the inner draw functions to the fresh canvas context
+  function drawGroundCtx(ctx) { drawGround(ctx); }
+  function drawPathsCtx(ctx)  { drawPaths(ctx); }
+  function drawStoneCtx(ctx, s) { drawStone(ctx, s); }
+
+  // ── Mouse / touch events ──
+  fresh.addEventListener('mousedown', e => {
     mapState.dragging = true;
     mapState.startX   = e.clientX - mapState.offsetX;
     mapState.startY   = e.clientY - mapState.offsetY;
   });
   window.addEventListener('mouseup', () => { mapState.dragging = false; });
-  c.addEventListener('mousemove', e => {
-    if (!mapState.dragging) return;
-    mapState.offsetX = e.clientX - mapState.startX;
-    mapState.offsetY = e.clientY - mapState.startY;
-    drawMap();
+
+  fresh.addEventListener('mousemove', e => {
+    const rect = fresh.getBoundingClientRect();
+    const mx   = e.clientX - rect.left - mapState.offsetX;
+    const my   = e.clientY - rect.top  - mapState.offsetY;
+    const hit  = mapState.stones.find(s =>
+      mx >= s.x - s.w * 0.6 && mx <= s.x + s.w * 0.6 &&
+      my >= s.y - s.h * 0.6 && my <= s.y + s.h * 0.6
+    );
+    const newHover = hit ? hit.p.id : null;
+    if (newHover !== mapState.hoveredId) {
+      mapState.hoveredId   = newHover;
+      fresh.style.cursor   = hit ? 'pointer' : 'grab';
+      redraw();
+    }
+    if (mapState.dragging) {
+      mapState.offsetX = e.clientX - mapState.startX;
+      mapState.offsetY = e.clientY - mapState.startY;
+      redraw();
+    }
   });
 
-  // Touch support
-  c.addEventListener('touchstart', e => {
+  fresh.addEventListener('touchstart', e => {
     mapState.dragging = true;
     mapState.startX   = e.touches[0].clientX - mapState.offsetX;
     mapState.startY   = e.touches[0].clientY - mapState.offsetY;
-  });
-  c.addEventListener('touchend', () => { mapState.dragging = false; });
-  c.addEventListener('touchmove', e => {
+  }, { passive: true });
+  fresh.addEventListener('touchend',  () => { mapState.dragging = false; });
+  fresh.addEventListener('touchmove', e => {
     if (!mapState.dragging) return;
     mapState.offsetX = e.touches[0].clientX - mapState.startX;
     mapState.offsetY = e.touches[0].clientY - mapState.startY;
-    drawMap();
+    redraw();
     e.preventDefault();
   }, { passive: false });
 
-  // Click to open grave
-  c.addEventListener('click', e => {
-    const rect = c.getBoundingClientRect();
-    const mx   = (e.clientX - rect.left - mapState.offsetX);
-    const my   = (e.clientY - rect.top  - mapState.offsetY);
+  fresh.addEventListener('click', e => {
+    const rect = fresh.getBoundingClientRect();
+    const mx   = e.clientX - rect.left - mapState.offsetX;
+    const my   = e.clientY - rect.top  - mapState.offsetY;
     const hit  = mapState.stones.find(s =>
-      mx >= s.x - s.w * 0.5 && mx <= s.x + s.w * 0.5 &&
-      my >= s.y - s.h * 0.5 && my <= s.y + s.h * 0.5
+      mx >= s.x - s.w * 0.6 && mx <= s.x + s.w * 0.6 &&
+      my >= s.y - s.h * 0.6 && my <= s.y + s.h * 0.6
     );
     if (hit) openDetailModal(hit.p.id, hit.p);
   });
-
-  function drawMap() {
-    const c2   = document.getElementById('mapCanvas');
-    const ctx3 = c2.getContext('2d');
-    ctx3.clearRect(0, 0, W, H);
-    ctx3.fillStyle = '#0d0d12';
-    ctx3.fillRect(0, 0, W, H);
-
-    ctx3.strokeStyle = 'rgba(58,58,80,0.2)';
-    ctx3.lineWidth = 1;
-    for (let gx = (mapState.offsetX % 60); gx < W; gx += 60) {
-      ctx3.beginPath(); ctx3.moveTo(gx, 0); ctx3.lineTo(gx, H); ctx3.stroke();
-    }
-    for (let gy = (mapState.offsetY % 60); gy < H; gy += 60) {
-      ctx3.beginPath(); ctx3.moveTo(0, gy); ctx3.lineTo(W, gy); ctx3.stroke();
-    }
-
-    ctx3.save();
-    ctx3.translate(mapState.offsetX, mapState.offsetY);
-    mapState.stones.forEach(s => {
-      ctx3.save();
-      ctx3.translate(s.x, s.y);
-      ctx3.rotate(s.tilt * Math.PI / 180);
-
-      const isRisen = s.p.status === 'risen';
-      const sw = s.w * 0.5, sh = s.h * 0.5;
-
-      if (isRisen) {
-        const grd = ctx3.createRadialGradient(0, 0, 10, 0, 0, 70);
-        grd.addColorStop(0, 'rgba(74,103,65,0.2)');
-        grd.addColorStop(1, 'rgba(74,103,65,0)');
-        ctx3.fillStyle = grd;
-        ctx3.fillRect(-60, -70, 120, 120);
-      }
-
-      ctx3.beginPath();
-      ctx3.moveTo(-sw, sh);
-      ctx3.lineTo(-sw, -sh * 0.5);
-      ctx3.quadraticCurveTo(-sw, -sh, 0, -sh);
-      ctx3.quadraticCurveTo(sw, -sh, sw, -sh * 0.5);
-      ctx3.lineTo(sw, sh);
-      ctx3.closePath();
-      ctx3.fillStyle   = isRisen ? '#1a2e1a' : '#1e1e2a';
-      ctx3.fill();
-      ctx3.strokeStyle = isRisen ? '#4a6741' : '#3a3a50';
-      ctx3.lineWidth   = 1.5;
-      ctx3.stroke();
-
-      ctx3.fillStyle = isRisen ? '#6a9460' : '#c8b89a';
-      ctx3.font = 'bold 11px Georgia, serif';
-      ctx3.textAlign = 'center';
-      const name = s.p.name.length > 14 ? s.p.name.slice(0, 13) + '…' : s.p.name;
-      ctx3.fillText(name, 0, -10);
-
-      ctx3.fillStyle = isRisen ? '#4a6741' : '#8a7a65';
-      ctx3.font = 'italic 9px Georgia, serif';
-      ctx3.fillText((s.p.cause || '').slice(0, 16), 0, 8);
-
-      ctx3.fillStyle = '#e8a030';
-      ctx3.font = '9px Georgia, serif';
-      ctx3.fillText(`🕯 ${s.p.respects || 0}`, 0, 26);
-
-      ctx3.strokeStyle = '#3a5230';
-      ctx3.lineWidth = 1;
-      [-20, -10, 0, 10, 20].forEach(gx => {
-        ctx3.beginPath();
-        ctx3.moveTo(gx, sh);
-        ctx3.quadraticCurveTo(gx - 3, sh - 7, gx, sh - 12);
-        ctx3.stroke();
-      });
-
-      ctx3.restore();
-    });
-    ctx3.restore();
-  }
 }
 function highlight(text, query) {
   if (!query) return text;

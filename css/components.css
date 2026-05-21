@@ -458,10 +458,10 @@
 #mapCanvas {
   display: block;
   width: 100%;
-  height: 600px;
+  height: 680px;
   border: 1px solid var(--stone-border);
   cursor: grab;
-  background: var(--bg);
+  background: #08080e;
 }
 #mapCanvas:active { cursor: grabbing; }
 
