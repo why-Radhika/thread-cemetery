@@ -4,7 +4,7 @@
 
 A darkly beautiful, community graveyard for abandoned side projects. Submit your unfinished app, half-written novel, or "I'll get to it someday" idea — give it a proper burial with a cause of death and epitaph. Pay respects to the projects of strangers. Share a grave link with the world.
 
-**[→ Visit the Cemetery](https://YOUR-USERNAME.github.io/thread-cemetery)**
+**[→ Visit the Cemetery](https://why-radhika.github.io/thread-cemetery)**
 
 ---
 
