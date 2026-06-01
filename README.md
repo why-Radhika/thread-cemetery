@@ -1,147 +1,61 @@
 # 🪦 The Thread Cemetery
 
-> *Every developer has a graveyard. This one is public.*
-
-A darkly beautiful, community graveyard for abandoned side projects. Submit your unfinished app, half-written novel, or "I'll get to it someday" idea — give it a proper burial with a cause of death and epitaph. Pay respects to the projects of strangers. Share a grave link with the world.
-
-**[→ Visit the Cemetery](https://why-radhika.github.io/thread-cemetery)**
+*Here lie the unfinished, the abandoned, the "I'll get to it someday."*
 
 ---
 
-## ✨ Features
+Every developer has a graveyard of dead projects. Half-built apps, abandoned side hustles, novels that never made it past chapter one. We don't talk about them — but we all have them.
 
-- **Bury a project** — name it, describe it, choose its cause of death, write an epitaph
-- **Graveyard view** — scrollable field of tombstones with randomised tilts and animated grass
-- **Pay Respects** — a candle-click counter on every grave
-- **Search** — find graves by name, epitaph, description, or cause
-- **Filter by cause** — Lost motivation · Scope creep · Shiny new idea · and more
-- **Shareable grave URLs** — every tombstone gets a `#grave-id` deep link
-- **Live backend** — all submissions shared globally via Supabase
-- **Local fallback** — works offline with localStorage if Supabase is unreachable
-- **Gothic aesthetic** — Cinzel & Cormorant Garant fonts, drifting fog, candlelight glow
+The Thread Cemetery is a place to bury them properly. Give your dead project a name, a cause of death, an epitaph. Let strangers pay their respects. Let someone else whisper *me too.*
 
 ---
 
-## 🗂 Project Structure
+## The idea
+
+It started as a joke about the psychological weight of unfinished things — the quiet guilt of a GitHub repo that hasn't been touched in two years, the folder on your desktop called `final_final_v3`. 
+
+Most project graveyards are private. This one isn't. It turns out there's something unexpectedly moving about reading a stranger's epitaph for their abandoned fitness app, or their half-written novel, or the startup idea they shelved when life got in the way. You feel less alone in your own pile of unfinished things.
+
+---
+
+## What it does
+
+- **Bury a project** — name it, describe what it was going to be, choose how it died, write an epitaph. Optionally link your GitHub profile.
+- **Pay respects** — a candle on every grave
+- **Me Too** — silent solidarity for the graves that hit close to home
+- **Leave condolences** — a short guestbook message on any grave
+- **Exhume** — mark a buried project as revived. It moves to the Risen section and glows green.
+- **Browse** — grid view with cause-of-death sections, a pannable map view, and a Risen wing for the comeback stories
+- **Share a grave** — every tombstone has a shareable link that lands visitors directly on that grave before showing them the full cemetery
+- **Weekly digest** — the most-mourned grave of the week, surfaced at the top
+
+---
+
+## Tech
+
+Vanilla HTML, CSS, and JavaScript — no framework, no build step. Supabase for the database. Hosted on GitHub Pages. The map view is drawn on a `<canvas>` element. The whole thing is a single folder you can open in a browser.
 
 ```
-thread-cemetery/
-├── index.html          # HTML structure and modals
-├── css/
-│   ├── base.css        # CSS variables, reset, animations
-│   ├── layout.css      # Header, stats, fog, graveyard grid, footer
-│   ├── tombstone.css   # Tombstone card and skeleton loader styles
-│   └── components.css  # Modals, forms, search, filters, toast, DB dot
-└── js/
-    ├── db.js           # Supabase config, data layer (load/insert/increment)
-    ├── render.js       # Graveyard rendering, filtering, search, stats
-    └── ui.js           # Modals, bury form, respects, share, hash routing
+index.html      — structure
+css/            — base, layout, tombstones, components
+js/db.js        — Supabase data layer
+js/render.js    — graveyard grid, sections, canvas map
+js/ui.js        — all user interactions
 ```
 
 ---
 
-## 🛠 Tech Stack
+## Collaborate
 
-| Layer      | Choice                  |
-|------------|-------------------------|
-| Frontend   | HTML + CSS + Vanilla JS |
-| Database   | Supabase (PostgreSQL)   |
-| Hosting    | GitHub Pages            |
-| Fonts      | Google Fonts            |
+If you want to add something — a new feature, a better map, a dark-humour twist — open an issue or a pull request. The codebase is intentionally simple. No tooling to fight with.
 
-No build step. No framework. No npm. Just open `index.html`.
-
----
-
-## ⚙️ Setup
-
-### 1. Clone the repo
-```bash
-git clone https://github.com/YOUR-USERNAME/thread-cemetery.git
-cd thread-cemetery
-```
-
-### 2. Create a Supabase project
-
-1. Go to [supabase.com](https://supabase.com) and create a free project
-2. In the **SQL Editor**, run:
-
-```sql
-create table public.graves (
-  id          uuid primary key default gen_random_uuid(),
-  name        text not null,
-  description text default '',
-  cause       text default '',
-  epitaph     text default '',
-  respects    integer default 0,
-  created_at  timestamptz default now()
-);
-
-alter table public.graves enable row level security;
-
-create policy "Anyone can read graves"
-  on public.graves for select using (true);
-
-create policy "Anyone can insert graves"
-  on public.graves for insert with check (true);
-
-create or replace function increment_respects(grave_id uuid)
-returns integer language sql as $$
-  update public.graves set respects = respects + 1
-  where id = grave_id returning respects;
-$$;
-
-grant select, insert on public.graves to anon;
-grant execute on function increment_respects(uuid) to anon;
-```
-
-### 3. Add your keys
-
-Open `js/db.js` and replace the placeholders:
-
-```js
-const SUPABASE_URL = 'https://your-project.supabase.co';
-const SUPABASE_KEY = 'your-anon-key';
-```
-
-Your keys are in Supabase → **Project Settings → API**.
-
-### 4. Run locally
-
-Open `index.html` with the **Live Server** VS Code extension. No terminal needed.
+Ideas that would fit:
+- Condolence reactions (beyond text)
+- Graveyard statistics page — most common cause of death, oldest grave, etc.
+- Annual "Graveyard of the Year" digest
+- Mobile app
 
 ---
 
-## 🚀 Deploy to GitHub Pages
-
-```bash
-git add .
-git commit -m "initial burial"
-git push origin main
-```
-
-Then: GitHub repo → **Settings → Pages → Source: main / root** → Save.
-
-Your site will be live at `https://YOUR-USERNAME.github.io/thread-cemetery` within a minute.
-
----
-
-## 🔮 Roadmap
-
-- [ ] Sort by Most Recent / Most Respected / Oldest
-- [ ] Random grave button
-- [ ] Condolence comments on each grave
-- [ ] "I abandoned this too" solidarity counter
-- [ ] Exhume a project — mark it as revived (glows green)
-- [ ] OG preview image for social sharing
-- [ ] Anonymous vs named burial (link to GitHub profile)
-
----
-
-## 🪦 Contributing
-
-Found a bug? Have an idea for a feature? Open an issue or a pull request. All abandoned-project enthusiasts welcome.
-
----
-
-*Built with grief. Hosted on GitHub Pages.*
+*Built with grief. Hosted on GitHub Pages.*  
+*[why-Radhika](https://github.com/why-Radhika)*
